@@ -1,0 +1,241 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String   @id @default(cuid())
+  email                 String   @unique
+  name                  String
+  password              String
+  role                  UserRole @default(STUDENT)
+  
+  // Onboarding fields
+  hasCompletedOnboarding Boolean  @default(false)
+  careerGoal            String?
+  skillLevel            String?
+  interests             String[]  // Array of interests
+  timeCommitment        String?
+  targetCompanies       String[]  // Array of companies
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Add email verification and reset tokens
+  emailVerified DateTime?
+  resetToken    String?
+  resetTokenExp DateTime?
+
+  // Relations
+  careers   UserCareer[]
+  resumes   Resume[]
+  progress  UserProgress[]
+  assessments UserAssessment[]
+  
+  @@map("users")
+}
+
+model Career {
+  id              String        @id @default(cuid())
+  title           String
+  description     String
+  scope           String
+  earningPotential String
+  skills          String[]
+  demandLevel     DemandLevel
+  category        String
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  userCareers     UserCareer[]
+  learningModules LearningModule[]
+  resumes         Resume[]
+  assessments     Assessment[]
+
+  @@map("careers")
+}
+
+model UserCareer {
+  id           String   @id @default(cuid())
+  userId       String
+  careerId     String
+  interestLevel InterestLevel @default(MEDIUM)
+  currentStep  Int      @default(0)
+  isCompleted  Boolean  @default(false)
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  career Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, careerId])
+  @@map("user_careers")
+}
+
+// 1. Enhanced User Resumes Model
+model Resume {
+  id        String   @id @default(cuid())
+  userId    String
+  careerId  String
+  title     String
+  summary   String?
+  
+  // Personal Information
+  personalInfo Json
+  
+  // Professional Details
+  skills    String[]
+  experiences Json
+  projects  Json
+  education Json
+  certifications Json?
+  
+  // Resume Analysis
+  aiFeedback String?
+  aiScore    Float?        // 0-100 score from AI analysis
+  strengths  String[]      // AI-identified strengths
+  improvements String[]    // AI-suggested improvements
+  
+  // Versioning
+  version   Int     @default(1)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  career Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@map("resumes")
+}
+
+model LearningModule {
+  id             String   @id @default(cuid())
+  careerId       String
+  title          String
+  description    String?
+  content        String?
+  videoUrl       String?
+  resources      Json?    // Additional resources (PDFs, links, etc.)
+  order          Int
+  estimatedHours Int
+  difficulty     DifficultyLevel @default(BEGINNER)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  career       Career        @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  userProgress UserProgress[]
+
+  @@map("learning_modules")
+}
+
+// 2. Enhanced User Progress Tracking
+model UserProgress {
+  id           String       @id @default(cuid())
+  userId       String
+  moduleId     String
+  status       ProgressStatus @default(NOT_STARTED)
+  
+  // Progress Details
+  progressPercentage Float?     @default(0)  // 0-100
+  timeSpent    Int?        // in minutes
+  lastActivity DateTime     @default(now())
+  completedAt  DateTime?
+  
+  // Assessment Results
+  quizScore    Float?      // 0-100
+  assignmentsCompleted Int @default(0)
+  notes        String?
+  
+  // Relations
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module LearningModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@map("user_progress")
+}
+
+// New: Assessment System
+model Assessment {
+  id          String   @id @default(cuid())
+  careerId    String
+  title       String
+  description String?
+  questions   Json     // Array of questions
+  timeLimit   Int?     // in minutes
+  totalMarks  Int
+  difficulty  DifficultyLevel
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations - FIXED: Added fields and references
+  career      Career   @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  userAssessments UserAssessment[]
+
+  @@map("assessments")
+}
+
+model UserAssessment {
+  id           String   @id @default(cuid())
+  userId       String
+  assessmentId String
+  score        Float?
+  totalMarks   Int
+  timeSpent    Int?     // in minutes
+  answers      Json     // User's answers
+  feedback     String?
+  completedAt  DateTime?
+  status       AssessmentStatus @default(NOT_STARTED)
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, assessmentId])
+  @@map("user_assessments")
+}
+
+// Enums
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+enum DemandLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum InterestLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum AssessmentStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  EVALUATED
+}
