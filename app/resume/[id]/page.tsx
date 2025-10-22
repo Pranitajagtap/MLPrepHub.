@@ -509,29 +509,25 @@ export default function ResumeEditor({ params }: PageProps) {
       </head>
       <body>
         <div class="resume-container">
-          ${resumeContent}
+           ${resumeContent}
         </div>
         <script>
-          window.onload = function() {
-            // Add a small delay to ensure all content is rendered
+          // Use only one event listener
+          function triggerPrint() {
             setTimeout(() => {
               window.print();
-              // Close window after print dialog is closed (longer timeout for better UX)
-              setTimeout(() => {
+             setTimeout(() => {
                 window.close();
               }, 500);
             }, 250);
           }
-        
-          // Fallback in case onload doesn't fire
-          document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-              window.print();
-              setTimeout(() => {
-                window.close();
-              }, 500);
-            }, 250);
-          });
+
+          // Try window.onload first, fallback to DOMContentLoaded
+          if (document.readyState === 'complete') {
+            triggerPrint();
+          } else {
+            window.addEventListener('load', triggerPrint);
+          }
         </script>
       </body>
     </html>
@@ -931,4 +927,5 @@ export default function ResumeEditor({ params }: PageProps) {
       <FloatingChatbot />
     </div>
   )
+
 }
